@@ -6,3 +6,5 @@ data
 .ipynb_checkpoints
 data_fetch
 jupyter
+.venv
+requirements.txt
