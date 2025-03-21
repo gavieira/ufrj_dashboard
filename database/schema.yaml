@@ -1,0 +1,63 @@
+Table works:
+  work_id: str; PRI_KEY
+  doi: str
+  work_title: str
+  publication_year: int (datetime - YYYY) (Maybe not needed)
+  publication_date: int (datetime - YYYY-MM-DD)
+  work_type: str
+  cited_by_count: int
+  primary_source_id: str; FOR_KEY (primary_source.source.id)
+  is_oa: bool
+  oa_status: str
+  referenced_works: array
+  related_works: array
+  indexed_in: array
+
+Table primary_source: 
+  source_id: str; PRI_KEY
+  source_name: str
+  source_issn_l: str
+  issn: array
+  is_oa: bool
+  host_organization_id: str
+  host_organization_name: str
+  type: str
+
+Table authorships:
+  work_id: str; FOR_KEY (works.id); PRI_KEY
+  author_id: str; FOR_KEY (authors.author_id); PRI_KEY
+  author_position: str
+  is_corresponding: bool
+  institution_id: array; FOR_KEY (institutions.institution_id)
+
+Table authors:
+  author_id: str; PRI_KEI
+  author_name: str
+  orcid: str
+
+Table institutions:
+  institution_id: str; PRI_KEY
+  institution_name: str
+  ror: str
+  type: str
+  country_code: str
+
+Table cited_by_year:
+  work_id: str; FOR_KEY (works.id); PRI_KEY
+  year: int (or datetime YYYY); PRI_KEY
+  cited_count: int
+
+Table work_topics:
+  work_id: str; FOR_KEY (works.id); PRI_KEY
+  topic_id: str; FOR_KEY (topics.topic_id); PRI_KEY
+  score: float
+
+Table topics:
+  topic_id: str; PRI_KEY
+  topic_name: str
+  subfield_id: str
+  subfield_name: str
+  field_id: str
+  field_name: str
+  domain_id: str
+  domain_name: str
