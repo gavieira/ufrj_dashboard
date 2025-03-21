@@ -9,8 +9,7 @@ Table works:
   primary_source_id: str; FOR_KEY (primary_source.source.id)
   is_oa: bool
   oa_status: str
-  referenced_works: array
-  related_works: array
+  referenced_works_count: int
   indexed_in: array
 
 Table primary_source: 

@@ -29,8 +29,7 @@ class OpenAlexWorkParser:
             "primary_source_id": self._clean_id(self._source.get("id")),
             "is_oa": work.get("open_access", {}).get("is_oa"),
             "oa_status": work.get("open_access", {}).get("oa_status"),
-            "referenced_works": [self._clean_id(ref) for ref in work.get("referenced_works", [])],
-            "related_works":[self._clean_id(rel) for rel in work.get("related_works", [])], 
+            "referenced_works_count": work.get("referenced_works_count"),
             "indexed_in": work.get("indexed_in", [])
         }
 

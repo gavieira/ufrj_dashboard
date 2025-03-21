@@ -106,17 +106,3 @@ class OpenAlexWorksRetriever:
 
             cursor = page_with_results.get("meta", {}).get("next_cursor")
             count += 1
-
-
-# Example usage
-if __name__ == "__main__":
-    retriever = OpenAlexWorksRetriever()
-
-    ror = "03490as77"
-    jsonl_filename = "/config/workspace/openalex_data/openalex_ufrj.jsonl"
-    #jsonl_filename = "~/openalex_ufrj.jsonl"
-    #jsonl_filename = "openalex_ufrj.jsonl"
-    db_url = "postgresql+psycopg2://gid_admin:dashboard@postgres:5432/gid_admin"
-    db_handler = OpenAlexDatabaseHandler(db_url)
-
-    retriever.retrieve_works(ror=ror, jsonl_filename=jsonl_filename, db_handler=db_handler, email="gabriel.vieira@bioqmed.ufrj.br", per_page=200)

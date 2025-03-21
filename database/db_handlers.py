@@ -73,8 +73,7 @@ class OpenAlexDatabaseHandler(DatabaseHandler):
             Column('primary_source_id', String, ForeignKey('primary_source.source_id')),
             Column('is_oa', Boolean),
             Column('oa_status', String),
-            Column('referenced_works', ARRAY(String)),
-            Column('related_works', ARRAY(String)),
+            Column('referenced_works_count', Integer),
             Column('indexed_in', ARRAY(String))
         )
 
