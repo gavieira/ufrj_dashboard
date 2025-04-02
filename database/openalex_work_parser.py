@@ -10,9 +10,15 @@ class OpenAlexWorkParser:
         Clean the URL from several IDs (OpenAlex, ROR, ORCID) by splitting on '/' and taking the last part.
         Returns None if the input is None or empty.
         """
-        if id_str:
-            return id_str.split('/')[-1]
-        return None
+        if not id_str:
+            return None #Deals with empty non-existing ids
+
+        id_str = id_str.rstrip('/') #removing eventual trailing slashes
+
+        if 'doi.org/' in id_str.lower():
+            return id_str.split('doi.org/')[-1] #Deals with doi id
+
+        return id_str.split('/')[-1] #Deals with other ids
 
 
     def get_table_works(self):
@@ -20,7 +26,7 @@ class OpenAlexWorkParser:
         work = self.json_data
         return {
             "work_id": self._clean_id(work.get("id")),
-            "doi": work.get("doi"),
+            "doi": self._clean_id(work.get("doi")),
             "work_title": work.get("title"),
             "publication_year": work.get("publication_year"),
             "publication_date": work.get("publication_date"),

@@ -1,4 +1,6 @@
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Boolean, Float, Date, ForeignKey, ARRAY, select, insert
+from sqlalchemy.exc import SQLAlchemyError
+import pandas as pd
 
 
 class DatabaseHandler:
@@ -48,6 +50,32 @@ class DatabaseHandler:
               else:
                   print(f"Row already exists: {value}")
 
+    def get_query_results(self, stmt, return_format='df'):
+        """
+        Executes a given SQLAlchemy statement and retrieves results in the desired format.
+
+        Args:
+            stmt: An SQLAlchemy select statement.
+            return_format: Format of the returned data - 'dicts' for list of dicts, 'df' for Pandas DataFrame (default).
+
+        Returns:
+            List of dictionaries if return_format='dicts', or a Pandas DataFrame if return_format='df'.
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(stmt)
+
+                if return_format == 'df':
+                    return pd.DataFrame(result.fetchall(), columns=result.keys())
+                elif return_format == 'dicts':
+                    rows = result.mappings().all()  # Returns rows as dictionaries
+                    return [dict(row) for row in rows]
+                else:
+                    raise ValueError("Invalid return_format. Choose 'dicts' or 'df'.")
+        except SQLAlchemyError as e:
+            print(f"Error fetching records: {e}")
+            return pd.DataFrame() if return_format == 'df' else []
+ 
 
 class OpenAlexDatabaseHandler(DatabaseHandler):
     """
