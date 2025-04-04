@@ -1,5 +1,6 @@
 from dash import html, Dash, dcc, dash_table, callback, Output, Input
 import plotly.express as px
+import dash_bootstrap_components as dbc
 from sqlalchemy import select
 import pandas as pd
 import sys
@@ -100,7 +101,7 @@ domains_cited_by_year['cumulative_cited_count'] = (
 domains_cited_by_year['year']= domains_cited_by_year['year'].astype(int)
 
 
-print(domains_cited_by_year)
+#print(domains_cited_by_year)
 
 # Create the base table
 domains_n_works_per_pubyear = topics_table[["work_id", "publication_year", 'domain_name']] \
@@ -130,7 +131,7 @@ domains_n_works_per_pubyear['cumulative_n_works'] = (
     .cumsum()
 )
 
-print(domains_n_works_per_pubyear)    
+#print(domains_n_works_per_pubyear)    
 
 #print(topics_cited_by_year.head())
 #print(topics_cited_by_year.columns)
@@ -149,82 +150,213 @@ domains_filtered = topics_core.drop_duplicates(subset=['work_id', 'domain_name']
 domains_summary = domains_filtered.groupby('domain_name').size().reset_index(name='n_works')
 
 
-app = Dash(__name__)
+app = Dash(__name__, external_stylesheets=[dbc.themes.MINTY, dbc.icons.FONT_AWESOME])
 
-app.layout = [
-    dcc.RangeSlider(
-        min(test['publication_year']), 
-        max(test['publication_year']), 
-        1, 
-        value = [ min(test['publication_year']), max(test['publication_year']) ],
-        marks={year: str(year) for year in range(test['publication_year'].min(), test['publication_year'].max() + 1, 5)},  # Show labels every 5 years (adjust as needed)
-        tooltip={"always_visible": False, "placement": "top"},  # Shows year on hover
-        id='pubyear_range'
-    ),
-    dcc.Dropdown(['none', 'work_type', 'is_oa', 'oa_status'], 
-                'none', 
-                id='pubyear_dropdown'
-                ),
-    dcc.Graph(
-    id='pubyear_histogram',
-    figure={}),
-    dcc.Graph(
-        figure=px.choropleth(collab,
-                            locations='country_code',
-                            color='log_count',
-                            #color_continuous_scale=[[0, "lightblue"], [1, "darkblue"]],
-                            hover_name='country_code',
-                            hover_data={
-                                'country_code': True,
-                                'n_works': True,
-                                'log_count': True 
-                                },
-                            color_continuous_midpoint=True).update_layout(
-                                geo = dict(
-                                    bgcolor='lightgray',
-                                    resolution=110,
-                                    showframe=True,
-                                    showcoastlines=True,
-                                    showlakes=False,
-                                    showrivers=False,
-                                    showsubunits=False,
-                                    projection_type='equirectangular'
-                                )
-                            )
-    ),
-    dcc.Dropdown(
-        options=[
-        {'label': 'Topic', 'value': 'topic_name'},
-        {'label': 'Subfield', 'value': 'subfield_name'}, 
-        {'label': 'Field', 'value': 'field_name'}, 
-        {'label': 'Domain', 'value': 'domain_name'}
-        ], 
-        value = 'topic_name', 
-        id='topics_dropdown'
+
+navbar = dbc.NavbarSimple(
+    children=[
+        dbc.DropdownMenu(
+            children=[
+                dbc.DropdownMenuItem("Produção científica", header=True),
+                dbc.DropdownMenuItem("Pós-Graduação", href="#"),
+                dbc.DropdownMenuItem("Desempenho em rankings", href="#"),
+                dbc.DropdownMenuItem("Pessoal", href="#"),
+                dbc.DropdownMenuItem("Infraestrutura", href="#")
+            ],
+            nav=True,
+            in_navbar=True,
+            label="Paineis",
+            align_end=True
         ),
-    dash_table.DataTable(data=[], page_size=10, 
-        sort_action='native', id='topics_table'),
-    dcc.Graph(figure={}, id='topics_3d'),
-    dcc.Graph(figure=px.sunburst(primary_topics.sort_values(by=['domain_name']), path=[
-        'domain_name',
-        'field_name', 
-        'subfield_name'
-        ], values = 'count').update_layout(height=800)),
-    dcc.Graph(figure=px.bar(domains_n_works_per_pubyear, 
-                            x='domain_name', 
-                            y='cumulative_n_works', 
-                            animation_frame='publication_year', 
-                            text_auto='.2s').update_traces(textposition='inside', insidetextanchor="start")),  # Align text at the bottom
-    dcc.Graph(figure=px.bar(domains_cited_by_year, 
-                            x='domain_name', 
-                            y='cumulative_cited_count', 
-                            animation_frame='year', 
-                            text_auto='.2s').update_traces(textposition='inside', insidetextanchor="start")),
-    html.Br(),
-    html.Br(),
-    html.Br()
-    
-]
+    ],
+    brand= [
+        html.Img(
+            src="https://ufrj.br/wp-content/uploads/2024/01/ufrj-horizontal-cor-rgb-completa-telas.png", 
+            height='80px',
+            style={"padding": "0px"}
+            ), 
+        "Painel de dados da PR2 - UFRJ"
+        ],
+    brand_href="#",
+    color="info",
+    dark=True,
+    style={"padding": "3px"}  # Reduce navbar padding
+)
+
+histogram = dbc.Container([
+    dbc.Accordion(
+        [
+            dbc.AccordionItem(
+                [ 
+                    dbc.Row([
+                        dbc.Col([
+                            html.P('Selecione o intervalo de ano de publicação:'),
+                            dcc.RangeSlider(
+                                 min(test['publication_year']), 
+                                 max(test['publication_year']), 
+                                 1, 
+                                 value = [ min(test['publication_year']), max(test['publication_year']) ],
+                                 marks={year: str(year) for year in range(test['publication_year'].min(), test['publication_year'].max() + 1, 20)},  # Show labels every 5 years (adjust as needed)
+                                 tooltip={"always_visible": False, "placement": "top"},  # Shows year on hover
+                                 id='pubyear_range'
+                                 )
+                        ], width={'size': 5}),
+                        dbc.Col([
+                            html.P('Selecione o tipo de particionamento dos dados:'),
+                            dcc.Dropdown(['none', 'work_type', 'is_oa', 'oa_status'], 
+                                        'none', 
+                                        id='pubyear_dropdown'
+                                        ),
+                        ], width={'size': 5}),
+                    ], justify='around'),
+                    dbc.Row([
+                        dbc.Col([
+                            dcc.Graph(
+                            id='pubyear_histogram',
+                            figure={}
+                            )
+                        ])
+                    ])
+                ],
+                title='Histograma da produção científica da UFRJ'
+            )
+        ]
+    )
+], fluid=True)
+
+
+maps = dbc.Container([
+    dbc.Accordion([
+        dbc.AccordionItem([
+            dcc.Graph(
+                figure=px.choropleth(collab,
+                                    locations='country_code',
+                                    color='log_count',
+                                    #color_continuous_scale=[[0, "lightblue"], [1, "darkblue"]],
+                                    hover_name='country_code',
+                                    hover_data={
+                                        'country_code': True,
+                                        'n_works': True,
+                                        'log_count': True 
+                                        },
+                                    color_continuous_midpoint=True).update_layout(
+                                        geo = dict(
+                                            bgcolor='lightgray',
+                                            resolution=110,
+                                            showframe=True,
+                                            showcoastlines=True,
+                                            showlakes=False,
+                                            showrivers=False,
+                                            showsubunits=False,
+                                            projection_type='equirectangular'
+                                            #projection_type='orthographic'
+                                            #projection_type='natural earth'
+                                        )
+                                    )
+            )
+        ], title='Colaborações da UFRJ ao redor do mundo')
+    ])
+], fluid=True)
+
+topics_data = dbc.Container([
+    dbc.Accordion([
+        dbc.AccordionItem([
+            dbc.Row([
+                dbc.Col([
+                    html.P('Selecione o nível de classificação:')
+                    ], width={'size': 5})
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Dropdown(
+                        options=[
+                        {'label': 'Topic', 'value': 'topic_name'},
+                        {'label': 'Subfield', 'value': 'subfield_name'}, 
+                        {'label': 'Field', 'value': 'field_name'}, 
+                        {'label': 'Domain', 'value': 'domain_name'}
+                        ], 
+                        value = 'topic_name', 
+                        id='topics_dropdown'
+                        ) 
+                    ], width={'size': 2})
+            ]),
+            html.Br(),
+            dbc.Row([
+                dbc.Col([
+                    html.P('Tabela de métricas por classificação - Múltiplas classificações por estudo:')
+                    ])
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dash_table.DataTable(data=[], page_size=10, 
+                        sort_action='native', id='topics_table')
+                ])
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    html.P('Gráfico de dispersão 3D por classificação - Múltiplas classificações por estudo:')
+                    ])
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(figure={}, id='topics_3d')
+                ])
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    html.P('Hierarquia das clasificações - Classificação principal de cada estudo:')
+                ])
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(figure=px.sunburst(primary_topics.sort_values(by=['domain_name']), path=[
+                        'domain_name',
+                        'field_name', 
+                        'subfield_name'
+                        ], values = 'count').update_layout(height=800))
+                ])
+            ])
+        ], title='Classificação temática da produção')
+    ])
+], fluid=True)
+
+animated_plots = dbc.Container([
+    dbc.Accordion([
+        dbc.AccordionItem([
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(figure=px.bar(domains_n_works_per_pubyear, 
+                        x='domain_name', 
+                        y='cumulative_n_works', 
+                        animation_frame='publication_year', 
+                        title='Total de trabalhos cumulativos',
+                        text_auto='.2s').update_traces(textposition='inside', insidetextanchor="start")),  # Align text at the bottom
+                ], width={'size':5}),
+                dbc.Col([
+                    dcc.Graph(figure=px.bar(domains_cited_by_year, 
+                        x='domain_name', 
+                        y='cumulative_cited_count', 
+                        animation_frame='year', 
+                        title='Total de citações cumulativas',
+                        text_auto='.2s').update_traces(textposition='inside', insidetextanchor="start")),
+                ], width={'size':5})
+
+
+            ], justify='around')
+
+        ], title='Produção científica por área ao longo dos anos')
+    ])
+], fluid=True)
+
+
+app.layout = html.Div([
+    navbar,
+    histogram,
+    maps,
+    topics_data,
+    animated_plots
+])
+
 
 @callback(
     Output(component_id='pubyear_histogram', component_property='figure'),
@@ -272,14 +404,7 @@ def update_topics_table(value):
                         y='h_index', 
                         z='mean_referenced_works', 
                         color = 'domain_name',
-                        hover_name=value).update_layout(height=800)
-
-                        #color_discrete_map={
-                        #    "Social Sciences": "blue",
-                        #    "Health Sciences": "red",
-                        #    "Life Sciences": "green",
-                        #    "Physical Sciences": "purple"
-                        #    }).update_layout(height=800)
+                        hover_name=value).update_layout(height=600)
                         
     fig.update_traces(marker=dict(size=5))  # Adjust size as needed
 
