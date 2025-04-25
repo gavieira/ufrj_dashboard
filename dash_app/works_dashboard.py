@@ -1,7 +1,8 @@
 from dash import html, Dash, dcc, dash_table, callback, Output, Input
 import plotly.express as px
 import dash_bootstrap_components as dbc
-from sqlalchemy import select
+from sqlalchemy import select, case, text
+from sqlalchemy.sql.expression import and_, any_
 import pandas as pd
 import sys
 import numpy as np
@@ -10,17 +11,43 @@ import requests
 
 # Add the project root directory to sys.path
 sys.path.append('/config/workspace/Dropbox/repos/ufrj_dashboard')
+sys.path.append('/home/gabriel/Dropbox/repos/ufrj_dashboard')
 
 from database.db_handlers import OpenAlexDatabaseHandler
 
 db_url = "postgresql+psycopg2://gid_admin:dashboard@postgres:5432/gid_admin" 
+db_url = "postgresql+psycopg2://gid_admin:dashboard@127.0.0.1:5432/gid_admin"
 
 handler = OpenAlexDatabaseHandler(db_url)
 
-stmt = select(handler.works)
+#stmt = select(handler.works)
+
+# Define institution ID to match
+ufrj_inst_id = 'I122140584'
+
+# Join with condition
+join_condition = and_(
+    handler.works.c.work_id == handler.authorships.c.work_id,
+    handler.authorships.c.is_corresponding == True
+)
+
+stmt = select(
+        handler.works.c.work_id,
+        handler.works.c.publication_year,
+        handler.works.c.work_type,
+        handler.works.c.is_oa,
+        handler.works.c.oa_status,
+        case(
+            # Check if institution_id array contains 'I122140584'
+            ( handler.authorships.c.institution_id == None, 'Undefined' ), # None if no corresponding author
+            ( any_(handler.authorships.c.institution_id) == ufrj_inst_id, 'UFRJ' ), # True if corresponding author affiliated to ufrj
+            else_= 'No UFRJ' # False otherwise
+        ).label('corresponding')
+    ).select_from(handler.works.outerjoin(handler.authorships, join_condition))
+
 
 test = handler.get_query_results(stmt)
-test['indexed_in'] = test['indexed_in'].apply(lambda x: ', '.join(x)) #Converting list to string
+#test['indexed_in'] = test['indexed_in'].apply(lambda x: ', '.join(x)) #Converting list to string
 
 
 query = select(
@@ -190,7 +217,7 @@ histogram = dbc.Container([
                 [ 
                     dbc.Row([
                         dbc.Col([
-                            html.P('Selecione o intervalo de ano de publicação:'),
+                            html.P('Intervalo de ano de publicação:'),
                             dcc.RangeSlider(
                                  min(test['publication_year']), 
                                  max(test['publication_year']), 
@@ -202,12 +229,30 @@ histogram = dbc.Container([
                                  )
                         ], width={'size': 5}),
                         dbc.Col([
-                            html.P('Selecione o tipo de particionamento dos dados:'),
-                            dcc.Dropdown(['none', 'work_type', 'is_oa', 'oa_status'], 
-                                        'none', 
+                            html.P('Dados exibidos:'),
+                            dcc.Dropdown(options = [
+                                        {'label': 'Total de publicações', 'value': 'none'},
+                                        {'label': 'Tipo de documento', 'value': 'work_type'}, 
+                                        {'label': 'Publicações em acesso aberto', 'value': 'is_oa'},
+                                        {'label': 'Tipo de acesso aberto', 'value': 'oa_status'}, 
+                                        {'label': 'Autores correspondentes UFRJ', 'value': 'corresponding'} 
+                                        ],
+                                        value = 'none', 
+                                        clearable=False,
                                         id='pubyear_dropdown'
                                         ),
-                        ], width={'size': 5}),
+                        ], width={'size': 3}),
+                        dbc.Col([
+                            html.P('Tipo de gráfico:'),
+                            dcc.Dropdown(options=[
+                                        {'label': 'Barra', 'value': 'bar'},
+                                        {'label': 'Linha', 'value': 'line'} 
+                                        ], 
+                                        value = 'bar', 
+                                        clearable=False,
+                                        id='pubyear_visualization'
+                                        ),
+                        ], width={'size': 3}),
                     ], justify='around'),
                     dbc.Row([
                         dbc.Col([
@@ -276,6 +321,7 @@ topics_data = dbc.Container([
                         {'label': 'Domain', 'value': 'domain_name'}
                         ], 
                         value = 'topic_name', 
+                        clearable=False,
                         id='topics_dropdown'
                         ) 
                     ], width={'size': 2})
@@ -361,14 +407,39 @@ app.layout = html.Div([
 @callback(
     Output(component_id='pubyear_histogram', component_property='figure'),
     [Input(component_id='pubyear_range', component_property='value'),
-     Input(component_id='pubyear_dropdown', component_property='value')
+     Input(component_id='pubyear_dropdown', component_property='value'),
+     Input(component_id='pubyear_visualization', component_property='value')
     ]
 )
-def update_pubyear_histogram(year_range, column):
-    min_year = year_range[0]
-    max_year = year_range[1]
+def update_pubyear_histogram(year_range, column, plot_type):
+    #Getting only timeframe of interest from widget
+    min_year, max_year = year_range
     pubs = test[test['publication_year'].between(min_year, max_year)]
-    fig = px.histogram(pubs, x='publication_year', color=column if column != 'none' else None).update_traces(marker_line_color='black', marker_line_width=1.5)
+
+    # Group by year and optionally by another column
+    group_cols = ['publication_year']
+    column = column if column != 'none' else None #Column is None if its value is 'none'
+    if column:
+        group_cols.append(column)
+
+    grouped = pubs.groupby(group_cols).size().reset_index(name='count')
+
+    # Choose the plot type
+    if plot_type == 'bar':
+        fig = px.bar(grouped, x='publication_year', y='count',
+                     color=column).update_traces(marker_line_color='black', marker_line_width=1.5)
+    elif plot_type == 'line':
+        fig = px.line(grouped, x='publication_year', y='count',
+                      color=column, markers=True).update_traces(
+                                        marker=dict(line=dict(width=0)
+                                                    )
+)
+
+    else:
+        fig = px.bar(grouped, x='publication_year', y='count')  # fallback
+
+    fig.update_layout(xaxis_title='Publication Year', yaxis_title='Count')
+
     return fig
 
 
@@ -412,4 +483,4 @@ def update_topics_table(value):
 
 
 
-app.run(debug=True, host='0.0.0.0', dev_tools_hot_reload=False, dev_tools_hot_reload_interval=600)
+app.run(port=8051, debug=True, host='0.0.0.0') #dev_tools_hot_reload=False, dev_tools_hot_reload_interval=600)
