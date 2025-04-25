@@ -1,7 +1,7 @@
 from dash import html, Dash, dcc, dash_table, callback, Output, Input
 import plotly.express as px
 import dash_bootstrap_components as dbc
-from sqlalchemy import select, case, text
+from sqlalchemy import select, case, func, text 
 from sqlalchemy.sql.expression import and_, any_
 import pandas as pd
 import sys
@@ -20,33 +20,94 @@ db_url = "postgresql+psycopg2://gid_admin:dashboard@127.0.0.1:5432/gid_admin"
 
 handler = OpenAlexDatabaseHandler(db_url)
 
+
 #stmt = select(handler.works)
 
-# Define institution ID to match
-ufrj_inst_id = 'I122140584'
 
-# Join with condition
-join_condition = and_(
-    handler.works.c.work_id == handler.authorships.c.work_id,
-    handler.authorships.c.is_corresponding == True
+#stmt = text(
+#    '''SELECT
+#    w.work_id,
+#    w.publication_year,
+#	w.work_type,
+#	w.is_oa,
+#	w.oa_status,
+#	CASE
+#		WHEN array_agg(flattened.institution_id) = '{NULL}' THEN 'Undefined'
+#        WHEN 'I122140584' = ANY(array_agg(flattened.institution_id)) THEN 'UFRJ'
+#        ELSE 'No UFRJ'
+#    END AS corresponding
+#FROM
+#    works w
+#LEFT JOIN (
+#    SELECT
+#        a.work_id,
+#        inst.institution_id
+#    FROM
+#        authorships a,
+#        LATERAL unnest(a.institution_id) AS inst(institution_id)
+#    WHERE
+#        a.is_corresponding = true
+#) AS flattened ON w.work_id = flattened.work_id
+#GROUP BY
+#    w.work_id
+#ORDER BY
+#    w.work_id;'''
+#)
+
+
+
+
+# Step 1: Subquery for corresponding authors with institution_id arrays
+
+corresponding_subq = (
+    select(
+        handler.authorships.c.work_id,
+        handler.authorships.c.institution_id
+    )
+    .where(handler.authorships.c.is_corresponding == True)
+    .subquery()
 )
 
-stmt = select(
+# Step 2: Unnest institution_id arrays via LATERAL join
+unnested_subq = select(
+    corresponding_subq.c.work_id, 
+    func.unnest(corresponding_subq.c.institution_id).label("institution_id")
+).lateral("unnested")
+
+# Step 3: Group by work_id and aggregate into flattened array
+agg_subq = (
+    select(
+        unnested_subq.c.work_id,
+        func.array_agg(unnested_subq.c.institution_id).label("flattened_insts")
+    )
+    .group_by(unnested_subq.c.work_id)
+    .subquery()
+)
+
+# Step 3: Main query with left join and ufrj_corresponding column
+target_institution = 'I122140584' #UFRJ openalex id
+
+final_query = (
+    select(
         handler.works.c.work_id,
         handler.works.c.publication_year,
         handler.works.c.work_type,
         handler.works.c.is_oa,
         handler.works.c.oa_status,
+        agg_subq.c.flattened_insts,
         case(
-            # Check if institution_id array contains 'I122140584'
-            ( handler.authorships.c.institution_id == None, 'Undefined' ), # None if no corresponding author
-            ( any_(handler.authorships.c.institution_id) == ufrj_inst_id, 'UFRJ' ), # True if corresponding author affiliated to ufrj
-            else_= 'No UFRJ' # False otherwise
-        ).label('corresponding')
-    ).select_from(handler.works.outerjoin(handler.authorships, join_condition))
+            ( agg_subq.c.flattened_insts == None, 'Undefined' ), # None if no corresponding author (depicted as)
+            ( any_(agg_subq.c.flattened_insts) == target_institution, 'UFRJ'),
+            else_ = 'No UFRJ'
+        ).label("corresponding")
+    )
+    .select_from(
+        handler.works.outerjoin(agg_subq, handler.works.c.work_id == agg_subq.c.work_id)
+    )
+)
 
 
-test = handler.get_query_results(stmt)
+test = handler.get_query_results(final_query)
 #test['indexed_in'] = test['indexed_in'].apply(lambda x: ', '.join(x)) #Converting list to string
 
 
