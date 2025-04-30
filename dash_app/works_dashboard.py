@@ -137,16 +137,32 @@ all_countries = pd.DataFrame({"country_code": [country for country in iso2_to_is
 # Step 2: Merge full country list with the `collab` table
 collab_full = all_countries.merge(collab, on="country_code", how="left").fillna({"n_works": 0, "log_count": 0})
 
+# Subquery: count of authors per work
+author_count_subq = select(
+    handler.authorships.c.work_id,
+    func.count(handler.authorships.c.author_id).label("author_count")
+).group_by(handler.authorships.c.work_id).subquery()
 
+# Main query with join to the author count subquery
 topics_query = select(
-    handler.works, 
-    handler.topics_by_work, 
-    handler.topics
-    ).select_from(
-        handler.works
-        .outerjoin(handler.topics_by_work, handler.works.c.work_id == handler.topics_by_work.c.work_id)
-        .outerjoin(handler.topics, handler.topics_by_work.c.topic_id == handler.topics.c.topic_id)
-    )
+    handler.works.c.work_id, 
+    handler.works.c.publication_year,
+    handler.works.c.work_type,
+    handler.works.c.cited_by_count,
+    handler.works.c.referenced_works_count,
+    handler.topics.c.topic_name,
+    handler.topics_by_work.c.score, 
+    handler.topics.c.subfield_name,
+    handler.topics.c.field_name,
+    handler.topics.c.domain_name,
+    author_count_subq.c.author_count
+).select_from(
+    handler.works
+    .outerjoin(handler.topics_by_work, handler.works.c.work_id == handler.topics_by_work.c.work_id)
+    .outerjoin(handler.topics, handler.topics_by_work.c.topic_id == handler.topics.c.topic_id)
+    .outerjoin(author_count_subq, handler.works.c.work_id == author_count_subq.c.work_id)
+)
+
 
 topics_table = handler.get_query_results(topics_query)
 topics_works = topics_table.dropna(subset=['domain_name']) #CHANGE TOPICS_WORKS to TOPICS_NO_NAN later
@@ -230,12 +246,12 @@ def h_index(citations):
     h = np.arange(1, len(citations) + 1)  # Rank values from 1 to N
     return max((h[citations >= h]), default=0)  # Find max h where citations >= rank
 
-topics_core = topics_works[['work_id', 'work_title', 'publication_year', 'cited_by_count', 
-                          'topic_id', 'subfield_id', 'subfield_name', 'field_id', 'field_name', 
-                          'domain_id', 'domain_name']]
-
-domains_filtered = topics_core.drop_duplicates(subset=['work_id', 'domain_name'], keep='first')
-domains_summary = domains_filtered.groupby('domain_name').size().reset_index(name='n_works')
+#topics_core = topics_works[['work_id', 'work_title', 'publication_year', 'cited_by_count', 
+#                          'topic_id', 'subfield_id', 'subfield_name', 'field_id', 'field_name', 
+#                          'domain_id', 'domain_name']]
+#
+#domains_filtered = topics_core.drop_duplicates(subset=['work_id', 'domain_name'], keep='first')
+#domains_summary = domains_filtered.groupby('domain_name').size().reset_index(name='n_works')
 
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.MINTY, dbc.icons.FONT_AWESOME])
@@ -390,7 +406,9 @@ topics_data = dbc.Container([
             html.Br(),
             dbc.Row([
                 dbc.Col([
-                    html.P('Tabela de métricas por classificação - Múltiplas classificações por estudo:')
+                    html.P(
+                        html.B('Tabela de métricas por classificação - Múltiplas classificações por estudo:')
+                        )
                     ])
             ]),
             dbc.Row([
@@ -401,8 +419,28 @@ topics_data = dbc.Container([
             ]),
             dbc.Row([
                 dbc.Col([
-                    html.P('Gráfico de dispersão 3D por classificação - Múltiplas classificações por estudo:')
+                    html.P(
+                        html.B('Gráfico de dispersão 3D por classificação - Múltiplas classificações por estudo:')
+                        )
                     ])
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    html.P('Selecione a variável do eixo z:')
+                    ])
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Dropdown(
+                        options=[
+                        {'label': 'Média de autores', 'value': 'mean_authors'},
+                        {'label': 'Média de referências', 'value': 'mean_referenced_works'}
+                        ], 
+                        value = 'mean_authors', 
+                        clearable=False,
+                        id='z_axis'
+                        ) 
+                    ], width={'size': 3})
             ]),
             dbc.Row([
                 dbc.Col([
@@ -411,7 +449,9 @@ topics_data = dbc.Container([
             ]),
             dbc.Row([
                 dbc.Col([
-                    html.P('Hierarquia das clasificações - Classificação principal de cada estudo:')
+                    html.P(
+                        html.B('Hierarquia das clasificações - Classificação principal de cada estudo:')
+                        )
                 ])
             ]),
             dbc.Row([
@@ -509,34 +549,36 @@ def update_pubyear_histogram(year_range, column, plot_type):
      Output(component_id='topics_table', component_property='data'),
      Output(component_id='topics_3d', component_property='figure')
     ],
-    Input(component_id='topics_dropdown', component_property='value')
+    Input(component_id='topics_dropdown', component_property='value'),
+    Input(component_id='z_axis', component_property='value')
 )
-def update_topics_table(value):
+def update_topics_table(classification, z_axis):
     work_types = ['review', 'article']  # Work types to be analyzed
     topics_table = topics_works[topics_works['work_type'].isin(work_types)]  # Filtering rows from the desired work types
-    topics_table = topics_table.drop_duplicates(['work_id', value], keep='first')  # Removing duplicates
+    topics_table = topics_table.drop_duplicates(['work_id', classification], keep='first')  # Removing duplicates
 
     # Define aggregation dictionary
     agg_dict = {
         'n_articles': ('work_id', 'count'),
         'h_index': ('cited_by_count', h_index),
-        'mean_referenced_works': ('referenced_works_count', lambda x: round(x.mean(), 2))
+        'mean_referenced_works': ('referenced_works_count', lambda x: round(x.mean(), 2)),
+        'mean_authors': ('author_count', lambda x: round(x.mean(), 2))
     }
 
     # Conditionally include 'domain_name' if value is not 'domain_name'
-    if value != 'domain_name':
+    if classification != 'domain_name':
         agg_dict['domain_name'] = ('domain_name', 'first')
 
     # Perform aggregation
-    agg_topics = topics_table.groupby(value).agg(**agg_dict).reset_index()
+    agg_topics = topics_table.groupby(classification).agg(**agg_dict).reset_index()
 
     #Create 3dplot
     fig = px.scatter_3d(agg_topics.sort_values(by='domain_name'), 
                         x='n_articles', 
                         y='h_index', 
-                        z='mean_referenced_works', 
+                        z=z_axis, 
                         color = 'domain_name',
-                        hover_name=value).update_layout(height=600)
+                        hover_name=classification).update_layout(height=600)
                         
     fig.update_traces(marker=dict(size=5))  # Adjust size as needed
 
