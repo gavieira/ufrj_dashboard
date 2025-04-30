@@ -11,3 +11,4 @@ requirements.txt
 core
 orm
 database/__pycache__
+dados
