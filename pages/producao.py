@@ -1,4 +1,4 @@
-from dash import html, Dash, dcc, dash_table, callback, Output, Input
+from dash import html, register_page, dcc, dash_table, callback, Output, Input
 import plotly.express as px
 import dash_bootstrap_components as dbc
 from sqlalchemy import select, case, func, text 
@@ -6,13 +6,16 @@ from sqlalchemy.sql.expression import and_, any_
 import pandas as pd
 import sys
 import numpy as np
-from iso_dict import iso2_to_iso3
 import requests
+
+register_page(__name__)
+
 
 # Add the project root directory to sys.path
 sys.path.append('/config/workspace/Dropbox/repos/ufrj_dashboard')
 sys.path.append('/home/gabriel/Dropbox/repos/ufrj_dashboard')
 
+from modules.prod import iso2_to_iso3
 from database.db_handlers import OpenAlexDatabaseHandler
 
 db_url = "postgresql+psycopg2://gid_admin:dashboard@postgres:5432/gid_admin" 
@@ -254,38 +257,8 @@ def h_index(citations):
 #domains_summary = domains_filtered.groupby('domain_name').size().reset_index(name='n_works')
 
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.MINTY, dbc.icons.FONT_AWESOME])
 
 
-navbar = dbc.NavbarSimple(
-    children=[
-        dbc.DropdownMenu(
-            children=[
-                dbc.DropdownMenuItem("Produção científica", header=True),
-                dbc.DropdownMenuItem("Pós-Graduação", href="#"),
-                dbc.DropdownMenuItem("Desempenho em rankings", href="#"),
-                dbc.DropdownMenuItem("Pessoal", href="#"),
-                dbc.DropdownMenuItem("Infraestrutura", href="#")
-            ],
-            nav=True,
-            in_navbar=True,
-            label="Paineis",
-            align_end=True
-        ),
-    ],
-    brand= [
-        html.Img(
-            src="https://ufrj.br/wp-content/uploads/2024/01/ufrj-horizontal-cor-rgb-completa-telas.png", 
-            height='80px',
-            style={"padding": "0px"}
-            ), 
-        "Painel de dados da PR2 - UFRJ"
-        ],
-    brand_href="#",
-    color="info",
-    dark=True,
-    style={"padding": "3px"}  # Reduce navbar padding
-)
 
 histogram = dbc.Container([
     dbc.Accordion(
@@ -496,8 +469,7 @@ animated_plots = dbc.Container([
 ], fluid=True)
 
 
-app.layout = html.Div([
-    navbar,
+layout = html.Div([
     histogram,
     maps,
     topics_data,
@@ -585,5 +557,3 @@ def update_topics_table(classification, z_axis):
     return agg_topics.to_dict('records'), fig
 
 
-
-app.run(port=8051, debug=True, host='0.0.0.0') #dev_tools_hot_reload=False, dev_tools_hot_reload_interval=600)

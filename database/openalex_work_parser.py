@@ -1,5 +1,8 @@
 import json
 
+#def funcao(self): dict ### Já estabelece o tipo do retorno
+
+
 class OpenAlexWorkParser:
     def __init__(self, json_data):
         self.json_data = json_data
@@ -39,7 +42,9 @@ class OpenAlexWorkParser:
             "indexed_in": work.get("indexed_in", [])
         }
 
-    def get_table_primary_source(self):
+    #def funcao(self, source: dict | None={})
+
+    def get_table_primary_source(self): #Tentar colocar "if source:" para lidar com ele caso seja nulo 
         """Extract and format data for the 'primary_source' table."""
         source = self._source
         return {
@@ -66,7 +71,7 @@ class OpenAlexWorkParser:
             })
         return authorships
 
-    def get_table_authors(self):
+    def get_table_authors(self): # Deletar método
         """Extract and format data for the 'authors' table."""
         authors = []
         for authorship in self.json_data.get("authorships", []):
@@ -103,7 +108,7 @@ class OpenAlexWorkParser:
             })
         return cited_by_year
 
-    def get_table_topics_by_work(self):
+    def get_table_topics_by_work(self): 
         """Extract and format data for the 'topics_by_work' table."""
         topics_by_work = []
         for topic in self.json_data.get("topics", []):
@@ -146,5 +151,5 @@ class OpenAlexWorkParser:
             "works": self.get_table_works(),
             "authorships": self.get_table_authorships(),
             "cited_by_year": self.get_table_cited_by_year(),
-            "topics_by_work": self.get_table_topics_by_work(),
+            "topics_by_work": self.get_table_topics_by_work()
         }

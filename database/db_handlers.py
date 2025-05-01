@@ -95,14 +95,14 @@ class OpenAlexDatabaseHandler(DatabaseHandler):
             Column('doi', String),
             Column('work_title', String),
             Column('publication_year', Integer),
-            Column('publication_date', Date),
-            Column('work_type', String),
+            Column('publication_date', Date), # Talvez criar uma tabela separada para publication date (date_id, day, month, year) e colocar o date_id como chave estrangeira aqui
+            Column('work_type', String), # Msma coisa do publication_date
             Column('cited_by_count', Integer),
             Column('primary_source_id', String, ForeignKey('primary_source.source_id')),
             Column('is_oa', Boolean),
-            Column('oa_status', String),
+            Column('oa_status', String), # Msma coisa do publication_date
             Column('referenced_works_count', Integer),
-            Column('indexed_in', ARRAY(String))
+            Column('indexed_in', ARRAY(String))  # Daria pra pegar a combinação de cada uma delas e fazer um id para cada uma (JUNK DIMENSION)
         )
 
         self.primary_source = Table(
@@ -110,11 +110,11 @@ class OpenAlexDatabaseHandler(DatabaseHandler):
             Column('source_id', String, primary_key=True),
             Column('source_name', String),
             Column('source_issn_l', String),
-            Column('issn', ARRAY(String)),
-            Column('is_oa', Boolean),
-            Column('host_organization_id', String),
-            Column('host_organization_name', String),
-            Column('type', String)
+            Column('issn', ARRAY(String)), # Remover isso depois
+            Column('is_oa', Boolean), # Remover
+            Column('host_organization_id', String), # Remover
+            Column('host_organization_name', String), # Remover
+            Column('type', String) 
         )
 
         self.authorships = Table(
@@ -123,10 +123,10 @@ class OpenAlexDatabaseHandler(DatabaseHandler):
             Column('author_id', String, ForeignKey('authors.author_id'), primary_key=True),
             Column('author_position', String),
             Column('is_corresponding', Boolean),
-            Column('institution_id', ARRAY(String))
+            Column('institution_id', ARRAY(String)) 
         )
 
-        self.authors = Table(
+        self.authors = Table( #Remove this
             'authors', self.metadata,
             Column('author_id', String, primary_key=True),
             Column('author_name', String),
@@ -138,7 +138,7 @@ class OpenAlexDatabaseHandler(DatabaseHandler):
             Column('institution_id', String, primary_key=True),
             Column('institution_name', String),
             Column('ror', String),
-            Column('type', String),
+            Column('type', String), #Manter?
             Column('country_code', String)
         )
 
