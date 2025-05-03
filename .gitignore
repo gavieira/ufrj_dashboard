@@ -7,7 +7,6 @@ data
 data_fetch
 jupyter
 .venv
-requirements.txt
 core
 orm
 database/__pycache__
