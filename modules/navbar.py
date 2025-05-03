@@ -16,7 +16,8 @@ navbar = html.Div([
         ],
         brand= [
             html.Img(
-                src="https://ufrj.br/wp-content/uploads/2024/01/ufrj-horizontal-cor-rgb-completa-telas.png", 
+                src="assets/ufrj_logo.png", 
+                #src="https://ufrj.br/wp-content/uploads/2024/01/ufrj-horizontal-cor-rgb-completa-telas.png", #original link
                 height='80px',
                 style={"padding": "0px"}
                 ), 
