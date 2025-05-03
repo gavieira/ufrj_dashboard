@@ -11,6 +11,7 @@ navbar = html.Div([
                 nav=True,
                 in_navbar=True,
                 align_end=True,
+                className="custom-dropdown-label"  # Apply your custom class here
             )
         ],
         brand= [

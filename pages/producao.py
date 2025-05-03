@@ -315,7 +315,7 @@ histogram = dbc.Container([
                 ],
                 title='Histograma da produção científica da UFRJ'
             )
-        ]
+        ], start_collapsed=True
     )
 ], fluid=True)
 
@@ -350,7 +350,7 @@ maps = dbc.Container([
                                     )
             )
         ], title='Colaborações da UFRJ ao redor do mundo')
-    ])
+    ], start_collapsed=True)
 ], fluid=True)
 
 topics_data = dbc.Container([
@@ -437,7 +437,7 @@ topics_data = dbc.Container([
                 ])
             ])
         ], title='Classificação temática da produção')
-    ])
+    ], start_collapsed=True)
 ], fluid=True)
 
 animated_plots = dbc.Container([
@@ -465,7 +465,7 @@ animated_plots = dbc.Container([
             ], justify='around')
 
         ], title='Produção científica por área ao longo dos anos')
-    ])
+    ], start_collapsed=True)
 ], fluid=True)
 
 
