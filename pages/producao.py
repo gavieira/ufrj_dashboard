@@ -19,7 +19,7 @@ from modules.prod import iso2_to_iso3
 from database.db_handlers import OpenAlexDatabaseHandler
 
 db_url = "postgresql+psycopg2://gid_admin:dashboard@postgres:5432/gid_admin" 
-db_url = "postgresql+psycopg2://gid_admin:dashboard@127.0.0.1:5432/gid_admin"
+db_url = "postgresql+psycopg2://gid_admin:dashboard@127.0.0.1:5432/openalex_db"
 
 handler = OpenAlexDatabaseHandler(db_url)
 
