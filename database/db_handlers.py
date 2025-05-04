@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from sqlalchemy import create_engine, MetaData, select, insert
-from sqlalchemy import Table, Column, String, Integer, Date, Boolean, Float, ForeignKey, ARRAY
 import sqlalchemy
 from sqlalchemy.exc import SQLAlchemyError
 import pandas as pd
+from schemas.openalex import define_openalex_tables
 
 
 def create_db_url(db_name, username, password=None, host="localhost", port=5432):
@@ -139,12 +139,14 @@ class DatabaseHandler(ABC):
         Executes a given SQLAlchemy statement and retrieves results in the desired format.
 
         Args:
-            stmt: An SQLAlchemy select statement.
+            stmt: An SQLAlchemy select statement or SQL query string
             return_format: Format of the returned data - 'dicts' for list of dicts, 'df' for Pandas DataFrame (default).
 
         Returns:
             List of dictionaries if return_format='dicts', or a Pandas DataFrame if return_format='df'.
         """
+        if isinstance(stmt, str): 
+            stmt = sqlalchemy.text(stmt)
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(stmt)
@@ -172,90 +174,13 @@ class OpenAlexDatabaseHandler(DatabaseHandler):
 
     def define_tables(self):
         """
-        Define tables specific to the OpenAlex database schema.
+        Define tables and insert order specific to the OpenAlex database schema.
         Each table is defined as a self attribute so they can be used throughout the class.
         """
-        self.works = Table(
-            'works', self.metadata,
-            Column('work_id', String, primary_key=True),
-            Column('doi', String),
-            Column('work_title', String),
-            Column('publication_year', Integer),
-            Column('publication_date', Date),
-            Column('work_type', String),
-            Column('cited_by_count', Integer),
-            Column('primary_source_id', String, ForeignKey('primary_source.source_id')),
-            Column('is_oa', Boolean),
-            Column('oa_status', String),
-            Column('referenced_works_count', Integer),
-            Column('indexed_in', ARRAY(String))
-        )
+        self.tables = define_openalex_tables(self.metadata)
+        for name, table in self.tables.items():
+            setattr(self, name, table)
 
-        self.primary_source = Table(
-            'primary_source', self.metadata,
-            Column('source_id', String, primary_key=True),
-            Column('source_name', String),
-            Column('source_issn_l', String),
-            Column('is_oa', Boolean), # Remover
-            Column('host_organization_id', String), # Remover
-            Column('host_organization_name', String), # Remover
-            Column('issn', ARRAY(String)),
-            Column('type', String)
-        )
-
-        self.authorships = Table(
-            'authorships', self.metadata,
-            Column('work_id', String, ForeignKey('works.work_id'), primary_key=True),
-            Column('author_id', String, primary_key=True),
-            Column('author_position', String),
-            Column('is_corresponding', Boolean),
-            Column('institution_id', ARRAY(String))
-        )
-
-        self.authors = Table(
-            'authors', self.metadata,
-            Column('author_id', String, primary_key=True),
-            Column('author_name', String),
-            Column('orcid', String)
-        )
-
-        self.institutions = Table(
-            'institutions', self.metadata,
-            Column('institution_id', String, primary_key=True),
-            Column('institution_name', String),
-            Column('ror', String),
-            Column('type', String),
-            Column('country_code', String)
-        )
-
-        self.cited_by_year = Table(
-            'cited_by_year', self.metadata,
-            Column('work_id', String, ForeignKey('works.work_id'), primary_key=True),
-            Column('year', Integer, primary_key=True),
-            Column('cited_count', Integer)
-        )
-
-        self.topics_by_work = Table(
-            'topics_by_work', self.metadata,
-            Column('work_id', String, ForeignKey('works.work_id'), primary_key=True),
-            Column('topic_id', String, ForeignKey('topics.topic_id'), primary_key=True),
-            Column('score', Float)
-        )
-
-        self.topics = Table(
-            'topics', self.metadata,
-            Column('topic_id', String, primary_key=True),
-            Column('topic_name', String),
-            Column('subfield_id', String),
-            Column('subfield_name', String),
-            Column('field_id', String),
-            Column('field_name', String),
-            Column('domain_id', String),
-            Column('domain_name', String)
-        )
-
-        # Insert order should follow dependencies
-        self.insert_order = [
-            "primary_source", "authors", "institutions", "topics",
-            "works", "authorships", "cited_by_year", "topics_by_work"
-        ]
+        # Define insert order
+        self.insert_order = list(self.tables.keys())
+        #self.delete_order = list(reversed(self.insert_order)) #Only useful if delete method is added to superclass

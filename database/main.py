@@ -23,3 +23,4 @@ if __name__ == "__main__":
                             db_handler=db_handler, 
                             email="gabriel.vieira@bioqmed.ufrj.br", 
                             per_page=200) #Method to retrieve OpenAlex data and save it to the database (one page at a time to minimize RAM usage)
+    
