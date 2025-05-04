@@ -9,5 +9,5 @@ jupyter
 .venv
 core
 orm
-database/__pycache__
 dados
+__pycache__/
