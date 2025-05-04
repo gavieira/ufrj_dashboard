@@ -6,23 +6,6 @@ import pandas as pd
 from schemas.openalex import define_openalex_tables
 
 
-def create_db_url(db_name, username, password=None, host="localhost", port=5432):
-    """
-    Automatically generates the database URL based on the given parameters.
-
-    Args:
-        db_name (str): The name of the database.
-        username (str): The username to connect to the database.
-        password (str, optional): The password for the username. Default is None.
-        host (str, optional): The host of the database. Default is 'localhost'.
-        port (int, optional): The port of the database. Default is 5432.
-
-    Returns:
-        str: The complete database URL.
-    """
-    if password:
-        return f"postgresql://{username}:{password}@{host}:{port}/{db_name}"
-    return f"postgresql://{username}@{host}:{port}/{db_name}"
 
 def replace_db_name_in_url(db_url, new_db_name):
     """
